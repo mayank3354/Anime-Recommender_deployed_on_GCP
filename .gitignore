@@ -17,3 +17,4 @@ __pycache__/
 *.pyd
 *.pyw
 *.pyz
+artifacts/

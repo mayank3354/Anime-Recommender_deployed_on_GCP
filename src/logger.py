@@ -11,7 +11,6 @@ logging.basicConfig(
     filename=LOG_FILE,
     level=logging.INFO,
     format="[%(asctime)s] %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler(LOG_FILE), logging.StreamHandler()],
 )
 
 def get_logger(name: str) -> logging.Logger:
