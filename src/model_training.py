@@ -3,6 +3,7 @@ import pandas as pd
 from src.base_model import BaseModel
 from src.logger import get_logger
 from src.custon_exception import CustomException
+import comet_ml
 import sys
 import numpy as np
 import os
@@ -14,7 +15,10 @@ logger = get_logger(__name__)
 class ModelTraining:
     def __init__(self, data_path: str):
         self.data_path = data_path
-       
+        self.experiment = comet_ml.Experiment(api_key="qhRQTWmKgxW2xUK4CmBhr3TsA",
+                                              project_name="Anime-recommender",
+                                              workspace="mayank3354")
+        logger.info("Experiment with comet ml initialized")
 
     def load_data(self):
         try:
@@ -80,6 +84,14 @@ class ModelTraining:
                 model.load_weights(CHECKPOINT_FILE_PATH)
                 logger.info("Model trained successfully")
 
+                for epoch in range(len(history.history["loss"])):
+                    train_loss = history.history["loss"][epoch]
+                    val_loss = history.history["val_loss"][epoch]
+                    self.experiment.log_metric("train_loss",train_loss,step=epoch)
+                    self.experiment.log_metric("val_loss",val_loss,step=epoch)
+
+
+
             except Exception as e:
                 logger.error("Error training model: %s", e)
                 raise CustomException(e,sys)
@@ -106,6 +118,10 @@ class ModelTraining:
 
             user_weights = self.extract_weights("user_embedding",model)
             anime_weights = self.extract_weights("anime_embedding",model)
+
+            self.experiment.log_asset(MODEL_PATH)
+            self.experiment.log_asset(USER_WEIGHTS_PATH)
+            self.experiment.log_asset(ANIME_WEIGHTS_PATH)
 
             joblib.dump(user_weights,USER_WEIGHTS_PATH)
             joblib.dump(anime_weights,ANIME_WEIGHTS_PATH)
