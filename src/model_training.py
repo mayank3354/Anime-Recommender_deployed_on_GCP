@@ -87,6 +87,7 @@ class ModelTraining:
                 for epoch in range(len(history.history["loss"])):
                     train_loss = history.history["loss"][epoch]
                     val_loss = history.history["val_loss"][epoch]
+                    
                     self.experiment.log_metric("train_loss",train_loss,step=epoch)
                     self.experiment.log_metric("val_loss",val_loss,step=epoch)
 

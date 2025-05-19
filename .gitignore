@@ -17,4 +17,9 @@ __pycache__/
 *.pyd
 *.pyw
 *.pyz
-artifacts/
+artifacts/raw/
+artifacts/processed/
+artifacts/weights/
+artifacts/model/
+artifacts/model_checkpoint/
+
