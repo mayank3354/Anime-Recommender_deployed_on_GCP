@@ -10,7 +10,6 @@ from config.paths_config import *
 import sys
 
 
-
 logger = get_logger(__name__)
 
 class DataProcessing:
@@ -54,7 +53,6 @@ class DataProcessing:
 
             logger.info("Users filtered successfully")
 
-            
         except Exception as e:
             logger.error("Error filtering users: %s", e)
             raise CustomException(e,sys)
@@ -66,15 +64,13 @@ class DataProcessing:
             max_rating = self.rating_df['rating'].max()
 
             # min max scaler
-            self.rating_df["rating"] = self.rating_df["rating"].apply(lambda X: (X - min_rating) / (max_rating - min_rating)).values.astype(np.float64)
+            self.rating_df["rating"] = self.rating_df["rating"].apply(lambda X: (X - min_rating) / (max_rating - min_rating)).astype(np.float32)
 
             logger.info("Ratings scaled successfully")
 
-            
         except Exception as e:
             logger.error("Error scaling ratings: %s", e)
             raise CustomException(e,sys)
-        
 
     def encode_data(self):
         try:
@@ -83,12 +79,8 @@ class DataProcessing:
             user_ids = self.rating_df['user_id'].unique().tolist()
             anime_ids = self.rating_df['anime_id'].unique().tolist()
 
-            # user_ids = user_ids.astype(str)
-            # anime_ids = anime_ids.astype(str)   
-
             self.user2user_encoded = {x:i for i,x in enumerate(user_ids)}
             self.user2user_decoded = {i:x for i,x in enumerate(user_ids)}
-
             self.anime2anime_encoded = {x:i for i,x in enumerate(anime_ids)}
             self.anime2anime_decoded = {i:x for i,x in enumerate(anime_ids)}    
 
@@ -97,32 +89,48 @@ class DataProcessing:
         except Exception as e:
             logger.error("Error encoding data: %s", e)
             raise CustomException(e,sys)
-        
-    def train_test_split(self):
+
+    def train_test_split(self, test_size=1000):
         try:
-            logger.info("Splitting data into train and test")
-            self.rating_df = self.rating_df.sample(frac=1,random_state=42).reset_index(drop=True)
+            logger.info("Splitting data into train and test with encoding")
+            # Shuffle
+            self.rating_df = self.rating_df.sample(frac=1, random_state=42).reset_index(drop=True)
 
-            X = self.rating_df[["user_id", "anime_id"]].values
-            y = self.rating_df["rating"].values
-            test_size = 1000
-            train_indices = self.rating_df.shape[0] - test_size
+            # Extract raw arrays
+            raw_X = self.rating_df[["user_id", "anime_id"]].values
+            y = self.rating_df["rating"].values.astype(np.float32)
 
-            X_train, X_test, y_train, y_test = X[:train_indices], X[train_indices:], y[:train_indices], y[train_indices:]
-            self.X_train_array = [X_train[: , 0], X_train[: , 1]]
-            self.X_test_array = [X_test[: , 0], X_test[: , 1]]   
-            self.y_train = y_train
-            self.y_test = y_test
-            logger.info("Data split successfully")
+            # Determine split index for holdout
+            split_index = raw_X.shape[0] - test_size
 
+            # Split raw arrays
+            raw_train = raw_X[:split_index]
+            raw_test  = raw_X[split_index:]
+            self.y_train = y[:split_index]
+            self.y_test  = y[split_index:]
 
+            # Encode IDs using mapping dicts
+            vec_user = np.vectorize(self.user2user_encoded.get)
+            vec_anime = np.vectorize(self.anime2anime_encoded.get)
+
+            train_users = vec_user(raw_train[:, 0]).astype(np.int32)
+            train_animes = vec_anime(raw_train[:, 1]).astype(np.int32)
+            test_users = vec_user(raw_test[:, 0]).astype(np.int32)
+            test_animes = vec_anime(raw_test[:, 1]).astype(np.int32)
+
+            # Save as list of two arrays for model.fit
+            self.X_train_array = [train_users, train_animes]
+            self.X_test_array  = [test_users, test_animes]
+
+            logger.info("Data split and encoded successfully")
 
         except Exception as e:
-            logger.error("Error splitting data: %s", e)
+            logger.error("Error splitting/encoding data: %s", e)
             raise CustomException(e,sys)
+
     def save_artifacts(self):
         try:
-            logger.info("Saving data")
+            logger.info("Saving data artifacts to %s", self.output_dir)
             artifacts = {
                 "user2user_encoded": self.user2user_encoded,
                 "user2user_decoded": self.user2user_decoded,
@@ -132,13 +140,14 @@ class DataProcessing:
             for name, data in artifacts.items():
                 joblib.dump(data, os.path.join(self.output_dir, f"{name}.pkl"))
                 logger.info(f"Data saved successfully: {name}")
+
             joblib.dump(self.X_train_array, X_TRAIN_ARRAY)
             joblib.dump(self.X_test_array, X_TEST_ARRAY)
             joblib.dump(self.y_train, Y_TRAIN)
             joblib.dump(self.y_test, Y_TEST)
 
             self.rating_df.to_csv(RATING_DF, index=False)
-            logger.info("All the Training and Testing Data saved successfully")
+            logger.info("All training/testing data saved successfully")
 
         except Exception as e:
             logger.error("Error saving data: %s", e)
@@ -146,40 +155,31 @@ class DataProcessing:
 
     def process_anime_data(self):
         try:
-            logger.info("Processing anime data")
+            logger.info("Processing anime metadata and synopsis")
 
             df = pd.read_csv(ANIME_CSV)
-
-            cols = ["MAL_ID", "Name", "Genres", "sypnopsis"]
-
-            synopsys_df = pd.read_csv(ANIMESYNOPSYS_CSV, usecols=cols)
+            synopsys_df = pd.read_csv(ANIMESYNOPSYS_CSV, usecols=["MAL_ID", "Name", "Genres", "sypnopsis"])
 
             df = df.replace("Unknown", np.nan)
 
-            def getAmineName(anime_id):
+            def getAnimeName(anime_id):
                 try:
-                    name = df[df.anime_id == anime_id].eng_version.values[0]
-                    if name is np.nan:
-                        name = df[df.anime_id == anime_id].Name.values[0]
-                except:
-                    print("Error")
-                return name
-
+                    row = df[df.MAL_ID == anime_id]
+                    if not row.empty and not pd.isna(row.eng_version.values[0]):
+                        return row.eng_version.values[0]
+                    elif not row.empty:
+                        return row.Name.values[0]
+                except Exception:
+                    pass
+                return None
 
             df["anime_id"] = df["MAL_ID"]
-            df["eng_version"] = df["English name"]
-            df["eng_version"] = df.anime_id.apply(lambda x:getAmineName(x))
+            df["eng_version"] = df["anime_id"].apply(getAnimeName)
 
-            df.sort_values(by=["Score"],
-               inplace=True,
-               ascending=False,
-               kind="quicksort",
-               na_position="last",
-               )
-            df = df[["anime_id", "eng_version","Score", "Genres", "Episodes", "Type","Premiered","Members"]]
+            df.sort_values(by="Score", ascending=False, na_position="last", inplace=True)
+            df = df[["anime_id", "eng_version", "Score", "Genres", "Episodes", "Type", "Premiered", "Members"]]
 
             df.to_csv(DF, index=False)
-
             synopsys_df.to_csv(SYNOPYS_DF, index=False)
 
             logger.info("Anime data processed successfully")
@@ -194,10 +194,10 @@ class DataProcessing:
             self.filter_users(min_ratings=400)
             self.scale_ratings()
             self.encode_data()
-            self.train_test_split() 
+            self.train_test_split(test_size=1000)
             self.save_artifacts()
             self.process_anime_data()
-            logger.info("Data processing Pipeline completed successfully")
+            logger.info("Data processing pipeline completed successfully")
         except Exception as e:
             logger.error("Error running data processing: %s", e)
             raise CustomException(e,sys)
@@ -205,5 +205,3 @@ class DataProcessing:
 if __name__ == "__main__":
     data_processing = DataProcessing(input_file=ANIMELIST_CSV, output_dir=PROCESSED_DIR)
     data_processing.run()
-
-
