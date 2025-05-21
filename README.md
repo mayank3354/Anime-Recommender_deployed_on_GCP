@@ -3,50 +3,45 @@
 ![image](https://github.com/user-attachments/assets/869d70a2-5e0c-4c3a-a5de-a8225476186e)
 
 
-Hybrid Anime Recommendation System
+# Hybrid Anime Recommendation System
 
-
+![Deployment Architecture](docs/architecture.png)
 
 A scalable, hybrid anime recommendation engine combining collaborative filtering and content-based suggestions. This application is deployed on Google Cloud Platform (GCP) using Kubernetes for orchestration and Jenkins for CI/CD.
 
-🚀 Features
+---
 
-Hybrid Recommendations: Blend of user-based collaborative filtering and anime-content similarity using embeddings.
+## 🚀 Features
 
-Fast Inference: Precomputed user/anime embeddings for real-time responses.
+* **Hybrid Recommendations**: Blend of user-based collaborative filtering and anime-content similarity using embeddings.
+* **Fast Inference**: Precomputed user/anime embeddings for real-time responses.
+* **Web UI**: Simple anime-themed front-end allowing users to input their user ID and receive top recommendations.
+* **Scalable Infrastructure**: Containerized with Docker, orchestrated by Kubernetes.
+* **CI/CD Pipeline**: Automated build, test, and deployment via Jenkins.
 
-Web UI: Simple anime-themed front-end allowing users to input their user ID and receive top recommendations.
+---
 
-Scalable Infrastructure: Containerized with Docker, orchestrated by Kubernetes.
+## 🏗️ Architecture Overview
 
-CI/CD Pipeline: Automated build, test, and deployment via Jenkins.
+1. **Frontend**: Static HTML/CSS served by Nginx. User input form and result rendering.
+2. **Backend API**: Python Flask application exposing a `/recommend` endpoint.
+3. **Model Serving**: TensorFlow/Keras model loaded in-memory, user & anime embeddings retrieved from Redis.
+4. **Data Storage**:
 
-🏗️ Architecture Overview
+   * **GCS**: Stores CSV datasets and serialized artifacts (encodings, weights).
+   * **Redis**: Caches frequently accessed embeddings for low-latency.
+5. **Kubernetes**:
 
-Frontend: Static HTML/CSS served by Nginx. User input form and result rendering.
+   * **Deployment**: Flask API and Nginx frontend in separate Pods.
+   * **Service**: Exposes the application via a GCP Load Balancer.
+   * **ConfigMaps & Secrets**: Store configuration and sensitive keys.
+6. **Jenkins**: Monitors Git, triggers Docker builds, runs unit tests, pushes images to GCR, and updates Kubernetes via `kubectl`.
 
-Backend API: Python Flask application exposing a /recommend endpoint.
+---
 
-Model Serving: TensorFlow/Keras model loaded in-memory, user & anime embeddings retrieved from Redis.
+## 📦 Repository Structure
 
-Data Storage:
-
-GCS: Stores CSV datasets and serialized artifacts (encodings, weights).
-
-Redis: Caches frequently accessed embeddings for low-latency.
-
-Kubernetes:
-
-Deployment: Flask API and Nginx frontend in separate Pods.
-
-Service: Exposes the application via a GCP Load Balancer.
-
-ConfigMaps & Secrets: Store configuration and sensitive keys.
-
-Jenkins: Monitors Git, triggers Docker builds, runs unit tests, pushes images to GCR, and updates Kubernetes via kubectl.
-
-📦 Repository Structure
-
+```
 ├── charts/                 # Helm charts (optional)
 ├── deployments/            # K8s manifests (YAML)
 ├── docs/                   # Architecture diagrams, design docs
@@ -58,98 +53,113 @@ Jenkins: Monitors Git, triggers Docker builds, runs unit tests, pushes images to
 ├── Dockerfile.backend      # Python Flask API build
 ├── requirements.txt        # Python dependencies
 └── README.md               # (this file)
+```
 
-🛠️ Prerequisites
+---
 
-GCP Project with:
+## 🛠️ Prerequisites
 
-GKE cluster
+* **GCP Project** with:
 
-GCR (Google Container Registry)
+  * GKE cluster
+  * GCR (Google Container Registry)
+  * GCS bucket for data/artifacts
+  * IAM service account with roles: `Kubernetes Engine Developer`, `Storage Object Viewer`, `Storage Admin`
+* **Jenkins Server** with:
 
-GCS bucket for data/artifacts
+  * Docker installed
+  * GCP SDK & `gcloud` authenticated
+* **kubectl** configured for the GKE cluster
 
-IAM service account with roles: Kubernetes Engine Developer, Storage Object Viewer, Storage Admin
+---
 
-Jenkins Server with:
+## 🔧 Setup & Deployment
 
-Docker installed
+### 1. Clone the Repository
 
-GCP SDK & gcloud authenticated
-
-kubectl configured for the GKE cluster
-
-🔧 Setup & Deployment
-
-1. Clone the Repository
-
+```bash
 git clone https://github.com/your-org/anime-recommender.git
 cd anime-recommender
+```
 
-2. Configure Environment Variables
+### 2. Configure Environment Variables
 
-Create a .env file or use Kubernetes Secrets:
+Create a `.env` file or use Kubernetes Secrets:
 
+```ini
 GCS_BUCKET=gs://your-bucket
 REDIS_HOST=redis.example.com
 REDIS_PORT=6379
 MODEL_PATH=/mnt/models/recommender
+```
 
-3. CI/CD with Jenkins
+### 3. CI/CD with Jenkins
 
-Jenkinsfile defines stages:
+* **Jenkinsfile** defines stages:
 
-Checkout from Git
-
-Build Docker images (frontend & backend)
-
-Unit Tests (pytest for backend)
-
-Push images to GCR
-
-Deploy to GKE using kubectl apply
+  1. **Checkout** from Git
+  2. **Build** Docker images (`frontend` & `backend`)
+  3. **Unit Tests** (`pytest` for backend)
+  4. **Push** images to GCR
+  5. **Deploy** to GKE using `kubectl apply`
 
 Ensure Jenkins credentials include a Service Account JSON for GCP tasks.
 
-4. Kubernetes Deployment
+### 4. Kubernetes Deployment
 
-Apply manifests under deployments/:
+Apply manifests under `deployments/`:
 
+```bash
 kubectl apply -f deployments/frontend-deployment.yaml
 kubectl apply -f deployments/backend-deployment.yaml
 kubectl apply -f deployments/redis-deployment.yaml
 kubectl apply -f deployments/service.yaml
+```
 
-5. Access the Application
+### 5. Access the Application
 
 Once Pods are running, find the external IP:
 
+```bash
 kubectl get svc anime-recommender
+```
 
-Open your browser at http://<EXTERNAL_IP>/.
+Open your browser at `http://<EXTERNAL_IP>/`.
 
-🧪 Testing
+---
 
-Unit tests: Under backend/tests/, run:
+## 🧪 Testing
 
-pytest --maxfail=1 --disable-warnings -q
+* **Unit tests**: Under `backend/tests/`, run:
 
-Model validation: Notebook ml/evaluate_model.ipynb shows performance metrics and sample recommendations.
+  ```bash
+  pytest --maxfail=1 --disable-warnings -q
+  ```
 
-🚀 Scaling & Monitoring
+* **Model validation**: Notebook `ml/evaluate_model.ipynb` shows performance metrics and sample recommendations.
 
-Horizontal Pod Autoscaling for backend API based on CPU usage.
+---
 
-Stackdriver (Cloud Monitoring & Logging) for metrics and logs.
+## 🚀 Scaling & Monitoring
 
-Redis Cluster for high-availability and low-latency embedding lookup.
+* **Horizontal Pod Autoscaling** for backend API based on CPU usage.
+* **Stackdriver** (Cloud Monitoring & Logging) for metrics and logs.
+* **Redis Cluster** for high-availability and low-latency embedding lookup.
 
-📄 License
+---
 
-This project is released under the MIT License. See LICENSE for details.
+## 📄 License
 
-👥 Contributors
+This project is released under the MIT License. See [LICENSE](LICENSE) for details.
 
-Mayank Rajput – Design, Implementation, MLOps
+---
 
-Your Team – Reviews, Testing, UX
+## 👥 Contributors
+
+* **Mayank Rajput** – Design, Implementation, MLOps
+* **Your Team** – Reviews, Testing, UX
+
+---
+
+*Happy watching & coding!*")}
+
