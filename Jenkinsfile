@@ -24,7 +24,8 @@ pipeline {
 
     stage('Setup Virtualenv & Dependencies') {
       steps {
-        withCredentials([file(credentialsId: 'gcp-key1', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+        script{
+            echo 'Making a virtual environment and installing dependencies...'
           sh '''
             python -m venv ${VENV_DIR}
             . ${VENV_DIR}/bin/activate
@@ -32,11 +33,7 @@ pipeline {
             pip install --upgrade pip
             pip install -e .            # your package
             pip install dvc[gcp]        # DVC with GCS support
-            pip install --upgrade gcsfs fsspec
-
-            # authenticate gcloud here when credentials are available
-            export PATH=$PATH:${GCLOUD_PATH}
-            gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+            
           '''
         }
       }
@@ -44,11 +41,14 @@ pipeline {
 
     stage('DVC Pull') {
       steps {
-        // no need to re-bind creds if you exported GOOGLE_APPLICATION_CREDENTIALS above
-        sh '''
-          . ${VENV_DIR}/bin/activate
-          dvc pull
-        '''
+        withCredentials([file(credentialsId: 'gcp-key1', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+         script{
+            echo 'Pulling data from DVC...'
+            sh '''
+            . ${VENV_DIR}/bin/activate
+            dvc pull
+          '''}
+        }
       }
     }
 
