@@ -12,6 +12,35 @@ pipeline{
             }
         
         }
+        stage("Making a virtual environment......"){
+            steps{
+                script{
+                    echo 'Making a virtual environment......'
+                    sh '''
+                    python -m venv ${venv_DIR}
+                    source ${venv_DIR}/bin/activate
+                    pip install --upgrade pip
+                    pip install -e .
+                    pip install dvc
 
+                    '''
+                }
+            }
+        }
+        stage("DVC PULL"){
+            steps{
+                withCredentials([file(credentialsId: 'gcp-key1', variable:'GOOGLE_APPLICATION_CREDENTIALS')])
+                {
+                   script{
+                    echo 'DVC Pull..'
+                    sh '''
+                    . ${venv_DIR}/bin/activate
+                    dvc pull
+                    '''
+                   }
+                }
+            }
+        }
+        
     }
 }
