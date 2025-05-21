@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HYBRID ANIME RECOMMENDATION SYSTEM</title>
+  <!-- Link to external CSS -->
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="form-container">
+        <h1>HYBRID ANIME RECOMMENDATION SYSTEM</h1>
+        <form action="/" method="POST">
+            <label for="userID">Enter your user ID:</label>
+            <input type="text" id="userID" name="userID" required>
+            <button type="submit">Get Recommendations</button>
+        </form>
+        {% if recommendations %}
+            <div class="result-container">
+                <h2>Recommended Animes:</h2>
+            <ul>
+                {% for anime in recommendations %}
+                    <li>{{ anime }}</li>
+                {% endfor %}
+            </ul>
+            </div>
+        {% endif %}
+        
+    </div>
+</body>
+</body>
+</html>

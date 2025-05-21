@@ -10,3 +10,4 @@ comet-ml
 dvc
 dvc-gs
 fuzzywuzzy
+flask
