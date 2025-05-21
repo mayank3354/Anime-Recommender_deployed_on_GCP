@@ -162,23 +162,20 @@ class DataProcessing:
 
             df = df.replace("Unknown", np.nan)
 
-            def getAnimeName(anime_id):
-                try:
-                    row = df[df.MAL_ID == anime_id]
-                    if not row.empty and not pd.isna(row.eng_version.values[0]):
-                        return row.eng_version.values[0]
-                    elif not row.empty:
-                        return row.Name.values[0]
-                except Exception:
-                    pass
-                return None
+            # Fallback: English name if available, else Name
+            df["eng_version"] = df["English name"].fillna(df["Name"])
 
+            # Set anime_id column
             df["anime_id"] = df["MAL_ID"]
-            df["eng_version"] = df["anime_id"].apply(getAnimeName)
 
+            # Sort and select relevant columns
             df.sort_values(by="Score", ascending=False, na_position="last", inplace=True)
-            df = df[["anime_id", "eng_version", "Score", "Genres", "Episodes", "Type", "Premiered", "Members"]]
+            df = df[[
+                "anime_id", "eng_version", "Score", "Genres", 
+                "Episodes", "Type", "Premiered", "Members"
+            ]]
 
+            # Save cleaned files
             df.to_csv(DF, index=False)
             synopsys_df.to_csv(SYNOPYS_DF, index=False)
 
@@ -186,7 +183,8 @@ class DataProcessing:
 
         except Exception as e:
             logger.error("Error processing anime data: %s", e)
-            raise CustomException(e,sys)
+            raise CustomException(e, sys)
+
 
     def run(self):
         try:
